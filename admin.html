@@ -1,21 +1,3 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Admin Dashboard</title>
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-<header>
-  <h1>Admin Dashboard</h1>
-  <button id="logoutBtn" class="logout-btn">Logout</button>
-</header>
-
-<div class="dashboard-container">
-  <div class="card">
-    <h2>Pending Admin Approvals</h2>
-    <div id="adminOutpasses"></div>
-  </div>
-</div>
 <script type="module">
 import { auth, db } from "./firebase.js";
 import { 
@@ -58,18 +40,31 @@ auth.onAuthStateChanged(async (user) => {
     return;
   }
 
-  querySnapshot.forEach((docSnap) => {
+  // ✅ USE for...of INSTEAD OF forEach
+  for (const docSnap of querySnapshot.docs) {
 
     const data = docSnap.data();
+
+    // Fetch student details
+    const studentDoc = await getDoc(doc(db, "users", data.studentId));
+    const studentData = studentDoc.data();
+
     const div = document.createElement("div");
 
     div.innerHTML = `
       <hr>
-      <p><b>Student ID:</b> ${data.studentId}</p>
+      <h3>Student Details</h3>
+      <p><b>Name:</b> ${studentData?.name || "N/A"}</p>
+      <p><b>Reg No:</b> ${studentData?.regNo || "N/A"}</p>
+      <p><b>Block:</b> ${studentData?.block || "N/A"}</p>
+      <p><b>Room No:</b> ${studentData?.roomNo || "N/A"}</p>
+
+      <h3>Outpass Request</h3>
       <p><b>Destination:</b> ${data.destination}</p>
       <p><b>Reason:</b> ${data.reason}</p>
       <p><b>From:</b> ${data.fromDate}</p>
       <p><b>To:</b> ${data.toDate}</p>
+
       <button class="approveBtn">Final Approve</button>
       <button class="rejectBtn">Reject</button>
     `;
@@ -82,7 +77,7 @@ auth.onAuthStateChanged(async (user) => {
 
       await updateDoc(doc(db, "outpasses", docSnap.id), {
         status: "approved",
-        qrToken: docSnap.id,  // secure token
+        qrToken: docSnap.id,
         expiry: expiryDate,
         used: false
       });
@@ -103,11 +98,7 @@ auth.onAuthStateChanged(async (user) => {
     });
 
     container.appendChild(div);
-  });
+  }
 
 });
 </script>
-
-</body>
-</html>
-2
