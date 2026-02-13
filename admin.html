@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Admin Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>Admin Dashboard</h1>
+  <button id="logoutBtn" class="logout-btn">Logout</button>
+</header>
+
+<div class="dashboard-container">
+  <div class="card">
+    <h2>Pending Admin Approvals</h2>
+    <div id="adminOutpasses"></div>
+  </div>
+</div>
+<script type="module">
+import { auth, db } from "./firebase.js";
+import { 
+  collection, query, where, getDocs, doc, updateDoc, getDoc 
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+auth.onAuthStateChanged(async (user) => {
+
+  if (!user) {
+    window.location.href = "login.html";
+    return;
+  }
+
+  // 🔐 ROLE CHECK
+  const userDoc = await getDoc(doc(db, "users", user.uid));
+
+  if (!userDoc.exists() || userDoc.data().role !== "admin") {
+    window.location.href = "login.html";
+    return;
+  }
+
+  // ✅ LOGOUT
+  document.getElementById("logoutBtn").addEventListener("click", async () => {
+    await signOut(auth);
+    window.location.href = "login.html";
+  });
+
+  // ✅ FETCH PENDING ADMIN APPROVALS
+  const q = query(
+    collection(db, "outpasses"),
+    where("status", "==", "pending_admin")
+  );
+
+  const querySnapshot = await getDocs(q);
+  const container = document.getElementById("adminOutpasses");
+
+  if (querySnapshot.empty) {
+    container.innerHTML = "<p>No pending approvals.</p>";
+    return;
+  }
+
+  querySnapshot.forEach((docSnap) => {
+
+    const data = docSnap.data();
+    const div = document.createElement("div");
+
+    div.innerHTML = `
+      <hr>
+      <p><b>Student ID:</b> ${data.studentId}</p>
+      <p><b>Destination:</b> ${data.destination}</p>
+      <p><b>Reason:</b> ${data.reason}</p>
+      <p><b>From:</b> ${data.fromDate}</p>
+      <p><b>To:</b> ${data.toDate}</p>
+      <button class="approveBtn">Final Approve</button>
+      <button class="rejectBtn">Reject</button>
+    `;
+
+    // ✅ APPROVE
+    div.querySelector(".approveBtn").addEventListener("click", async () => {
+
+      const expiryDate = new Date();
+      expiryDate.setHours(expiryDate.getHours() + 24);
+
+      await updateDoc(doc(db, "outpasses", docSnap.id), {
+        status: "approved",
+        qrToken: docSnap.id,  // secure token
+        expiry: expiryDate,
+        used: false
+      });
+
+      alert("Outpass Approved!");
+      location.reload();
+    });
+
+    // ❌ REJECT
+    div.querySelector(".rejectBtn").addEventListener("click", async () => {
+
+      await updateDoc(doc(db, "outpasses", docSnap.id), {
+        status: "rejected_by_admin"
+      });
+
+      alert("Outpass Rejected.");
+      location.reload();
+    });
+
+    container.appendChild(div);
+  });
+
+});
+</script>
+
+</body>
+</html>
+2

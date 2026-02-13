@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Parent Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>Parent Dashboard</h1>
+  <button id="logoutBtn" class="logout-btn">Logout</button>
+</header>
+
+<div class="dashboard-container">
+  <div class="card">
+    <h2>Pending Outpasses</h2>
+    <div id="outpassList"></div>
+  </div>
+</div>
+<script type="module">
+import { auth, db } from "./firebase.js";
+import { 
+  collection, query, where, getDocs, doc, updateDoc, getDoc 
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+auth.onAuthStateChanged(async (user) => {
+
+  if (!user) {
+    window.location.href = "login.html";
+    return;
+  }
+
+  // 🔐 ROLE CHECK
+  const userDoc = await getDoc(doc(db, "users", user.uid));
+
+  if (!userDoc.exists() || userDoc.data().role !== "parent") {
+    window.location.href = "login.html";
+    return;
+  }
+
+  // ✅ LOGOUT
+  document.getElementById("logoutBtn").addEventListener("click", async () => {
+    await signOut(auth);
+    window.location.href = "login.html";
+  });
+
+  // ✅ FETCH PENDING OUTPASSES
+  const q = query(
+    collection(db, "outpasses"),
+    where("parentId", "==", user.uid),
+    where("status", "==", "pending_parent")
+  );
+
+  const querySnapshot = await getDocs(q);
+  const container = document.getElementById("outpassList");
+
+  if (querySnapshot.empty) {
+    container.innerHTML = "<p>No pending outpasses.</p>";
+    return;
+  }
+
+  querySnapshot.forEach((docSnap) => {
+
+    const data = docSnap.data();
+    const div = document.createElement("div");
+
+    div.innerHTML = `
+      <hr>
+      <p><b>Destination:</b> ${data.destination}</p>
+      <p><b>Reason:</b> ${data.reason}</p>
+      <p><b>From:</b> ${data.fromDate}</p>
+      <p><b>To:</b> ${data.toDate}</p>
+      <button class="approveBtn">Approve</button>
+      <button class="rejectBtn">Reject</button>
+    `;
+
+    // Approve Button
+    div.querySelector(".approveBtn").addEventListener("click", async () => {
+      await updateDoc(doc(db, "outpasses", docSnap.id), {
+        status: "pending_admin"
+      });
+      alert("Approved! Waiting for admin approval.");
+      location.reload();
+    });
+
+    // Reject Button
+    div.querySelector(".rejectBtn").addEventListener("click", async () => {
+      await updateDoc(doc(db, "outpasses", docSnap.id), {
+        status: "rejected_by_parent"
+      });
+      alert("Outpass Rejected.");
+      location.reload();
+    });
+
+    container.appendChild(div);
+  });
+
+});
+</script>
+
+</body>
+</html>

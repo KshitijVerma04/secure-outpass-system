@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Student Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <h1>Student Dashboard</h1>
+  <button id="logoutBtn" class="logout-btn">Logout</button>
+</header>
+
+<div class="dashboard-container">
+
+  <!-- APPLY OUTPASS CARD -->
+  <div class="card">
+    <h2>Apply for Outpass</h2>
+
+    <input type="text" id="destination" placeholder="Destination">
+    <input type="text" id="reason" placeholder="Reason">
+    <input type="date" id="fromDate">
+    <input type="date" id="toDate">
+
+    <button id="applyBtn">Submit Outpass</button>
+
+    <p id="message"></p>
+  </div>
+
+  <!-- APPROVED OUTPASSES CARD -->
+  <div class="card">
+    <h2>Approved Outpasses</h2>
+    <div id="approvedList"></div>
+  </div>
+
+</div>
+
+<script type="module">
+import { auth, db } from "./firebase.js";
+import { 
+  collection, addDoc, doc, getDoc, query, where, getDocs 
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { default as QRCode } from "https://cdn.jsdelivr.net/npm/qrcode@1.5.4/+esm";
+
+// 🔐 AUTH CHECK
+auth.onAuthStateChanged(async (user) => {
+
+  if (!user) {
+    window.location.href = "login.html";
+    return;
+  }
+
+  const userDoc = await getDoc(doc(db, "users", user.uid));
+
+  if (!userDoc.exists() || userDoc.data().role !== "student") {
+    window.location.href = "login.html";
+    return;
+  }
+
+  // 🔓 LOGOUT
+  document.getElementById("logoutBtn").addEventListener("click", async () => {
+    await signOut(auth);
+    window.location.href = "login.html";
+  });
+
+  // 📤 SUBMIT OUTPASS
+  document.getElementById("applyBtn").addEventListener("click", async () => {
+
+    const destination = document.getElementById("destination").value;
+    const reason = document.getElementById("reason").value;
+    const fromDate = document.getElementById("fromDate").value;
+    const toDate = document.getElementById("toDate").value;
+
+    if (!destination || !reason || !fromDate || !toDate) {
+      alert("Please fill all fields.");
+      return;
+    }
+
+    const parentId = userDoc.data().parentId;
+
+    try {
+      await addDoc(collection(db, "outpasses"), {
+        studentId: user.uid,
+        parentId: parentId,
+        destination,
+        reason,
+        fromDate,
+        toDate,
+        status: "pending_parent",
+        createdAt: new Date()
+      });
+
+      document.getElementById("message").innerText =
+        "Outpass submitted successfully!";
+    } catch (error) {
+      alert(error.message);
+    }
+  });
+
+  // 📋 LOAD APPROVED OUTPASSES
+  const q = query(
+    collection(db, "outpasses"),
+    where("studentId", "==", user.uid),
+    where("status", "==", "approved")
+  );
+
+  const snapshot = await getDocs(q);
+  const container = document.getElementById("approvedList");
+
+  if (snapshot.empty) {
+    container.innerHTML = "<p>No approved outpasses yet.</p>";
+    return;
+  }
+
+  snapshot.forEach((docSnap) => {
+
+    const data = docSnap.data();
+    const div = document.createElement("div");
+    div.classList.add("qr-box");
+
+    const canvas = document.createElement("canvas");
+
+    QRCode.toCanvas(canvas, data.qrToken);
+
+    div.innerHTML = `
+      <hr>
+      <p><b>Destination:</b> ${data.destination}</p>
+      <p><b>From:</b> ${data.fromDate}</p>
+      <p><b>To:</b> ${data.toDate}</p>
+      <p><b>Expires:</b> ${
+        data.expiry ? data.expiry.toDate().toLocaleString() : "Not Set"
+      }</p>
+    `;
+
+    div.appendChild(canvas);
+    container.appendChild(div);
+  });
+
+});
+</script>
+
+</body>
+</html>

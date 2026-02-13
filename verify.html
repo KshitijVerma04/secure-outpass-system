@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Verify Outpass</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <h1>Gate Verification</h1>
+</header>
+
+<div class="dashboard-container">
+  <div class="card">
+    <h2>Verify QR Token</h2>
+
+    <input type="text" id="qrInput" placeholder="Enter QR Token (Document ID)">
+    <button id="verifyBtn">Verify</button>
+
+    <p id="result"></p>
+  </div>
+</div>
+
+<script type="module">
+import { db } from "./firebase.js";
+import { doc, getDoc, updateDoc }
+from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+document.getElementById("verifyBtn").addEventListener("click", async () => {
+
+  const token = document.getElementById("qrInput").value.trim();
+  const result = document.getElementById("result");
+
+  if (!token) {
+    result.innerText = "Please enter a token.";
+    return;
+  }
+
+  try {
+
+    // 🔐 Direct document lookup (SECURE)
+    const docRef = doc(db, "outpasses", token);
+    const docSnap = await getDoc(docRef);
+
+    if (!docSnap.exists()) {
+      result.innerText = "INVALID ❌";
+      return;
+    }
+
+    const data = docSnap.data();
+    const now = new Date();
+
+    if (
+      data.status === "approved" &&
+      !data.used &&
+      data.expiry &&
+      now <= data.expiry.toDate()
+    ) {
+
+      result.innerText = "VALID OUTPASS ✅";
+
+    } else {
+      result.innerText = "INVALID OR EXPIRED ❌";
+    }
+
+  } catch (error) {
+    console.error(error);
+    result.innerText = "Verification Error ❌";
+  }
+
+});
+</script>
+
+</body>
+</html>
