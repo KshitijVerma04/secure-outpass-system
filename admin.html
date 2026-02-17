@@ -14,13 +14,13 @@
 
 <div class="dashboard-container">
 
-  <!-- ✅ NEW SECTION -->
+  <!-- ✅ STUDENT APPROVALS -->
   <div class="card">
     <h2>Pending Student Registrations</h2>
     <div id="pendingStudents"></div>
   </div>
 
-  <!-- EXISTING SECTION -->
+  <!-- ✅ OUTPASS APPROVALS -->
   <div class="card">
     <h2>Pending Admin Approvals</h2>
     <div id="adminOutpasses"></div>
@@ -55,7 +55,7 @@ auth.onAuthStateChanged(async (user) => {
     return;
   }
 
-  // 🔐 ROLE CHECK
+  // 🔐 ADMIN CHECK
   const userDoc = await getDoc(doc(db, "users", user.uid));
 
   if (!userDoc.exists() || userDoc.data().role !== "admin") {
@@ -70,9 +70,8 @@ auth.onAuthStateChanged(async (user) => {
       window.location.href = "login.html";
     });
 
-
   // ==================================================
-  // ✅ PENDING STUDENT APPROVAL SYSTEM
+  // ✅ STUDENT APPROVAL SYSTEM
   // ==================================================
 
   const pendingContainer =
@@ -80,7 +79,8 @@ auth.onAuthStateChanged(async (user) => {
 
   const pendingQuery = query(
     collection(db, "users"),
-    where("role", "==", "pending_student")
+    where("role", "==", "student"),
+    where("status", "==", "pending")
   );
 
   const pendingSnapshot = await getDocs(pendingQuery);
@@ -102,25 +102,35 @@ auth.onAuthStateChanged(async (user) => {
         <p><b>Reg No:</b> ${student.regNo}</p>
         <p><b>Block:</b> ${student.block}</p>
         <p><b>Room:</b> ${student.roomNo}</p>
-        <p><b>Parent Email:</b> ${student.parentEmail}</p>
+        <p><b>Email:</b> ${student.email}</p>
 
-        <button class="approveStudentBtn">
-          Approve Student
-        </button>
+        <button class="approveStudentBtn">Approve</button>
+        <button class="rejectStudentBtn">Reject</button>
       `;
 
+      // ✅ APPROVE
       div.querySelector(".approveStudentBtn")
         .addEventListener("click", async () => {
 
           await updateDoc(
             doc(db, "users", studentId),
-            {
-              role: "student",
-              approved: true
-            }
+            { status: "approved" }
           );
 
-          alert("Student Approved!");
+          alert("Student Approved ✅");
+          location.reload();
+        });
+
+      // ❌ REJECT
+      div.querySelector(".rejectStudentBtn")
+        .addEventListener("click", async () => {
+
+          await updateDoc(
+            doc(db, "users", studentId),
+            { status: "rejected" }
+          );
+
+          alert("Student Rejected ❌");
           location.reload();
         });
 
@@ -130,7 +140,7 @@ auth.onAuthStateChanged(async (user) => {
 
 
   // ==================================================
-  // ✅ EXISTING OUTPASS APPROVAL SYSTEM
+  // ✅ OUTPASS APPROVAL SYSTEM
   // ==================================================
 
   const q = query(
@@ -159,7 +169,6 @@ auth.onAuthStateChanged(async (user) => {
 
     div.innerHTML = `
       <hr>
-
       <h3>Student Details</h3>
       <p><b>Name:</b> ${student?.name || "N/A"}</p>
       <p><b>Reg No:</b> ${student?.regNo || "N/A"}</p>
@@ -189,7 +198,7 @@ auth.onAuthStateChanged(async (user) => {
           used: false
         });
 
-        alert("Outpass Approved!");
+        alert("Outpass Approved ✅");
         location.reload();
       });
 
@@ -200,7 +209,7 @@ auth.onAuthStateChanged(async (user) => {
           status: "rejected_by_admin"
         });
 
-        alert("Outpass Rejected!");
+        alert("Outpass Rejected ❌");
         location.reload();
       });
 
@@ -208,7 +217,6 @@ auth.onAuthStateChanged(async (user) => {
   }
 
 });
-
 </script>
 
 </body>
