@@ -14,20 +14,17 @@
 
 <div class="dashboard-container">
 
-  <!-- ✅ STUDENT APPROVALS -->
   <div class="card">
     <h2>Pending Student Registrations</h2>
     <div id="pendingStudents"></div>
   </div>
 
-  <!-- ✅ OUTPASS APPROVALS -->
   <div class="card">
     <h2>Pending Admin Approvals</h2>
     <div id="adminOutpasses"></div>
   </div>
 
 </div>
-
 
 <script type="module">
 
@@ -43,9 +40,8 @@ import {
   getDoc
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-import {
-  signOut
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { signOut }
+from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 
 auth.onAuthStateChanged(async (user) => {
@@ -55,10 +51,10 @@ auth.onAuthStateChanged(async (user) => {
     return;
   }
 
-  // 🔐 ADMIN CHECK
-  const userDoc = await getDoc(doc(db, "users", user.uid));
+  // ✅ ADMIN ROLE CHECK
+  const adminDoc = await getDoc(doc(db, "users", user.uid));
 
-  if (!userDoc.exists() || userDoc.data().role !== "admin") {
+  if (!adminDoc.exists() || adminDoc.data().role !== "admin") {
     window.location.href = "login.html";
     return;
   }
@@ -71,7 +67,7 @@ auth.onAuthStateChanged(async (user) => {
     });
 
   // ==================================================
-  // ✅ STUDENT APPROVAL SYSTEM
+  // ✅ STUDENT APPROVAL SYSTEM (FIXED)
   // ==================================================
 
   const pendingContainer =
@@ -79,8 +75,7 @@ auth.onAuthStateChanged(async (user) => {
 
   const pendingQuery = query(
     collection(db, "users"),
-    where("role", "==", "student"),
-    where("status", "==", "pending")
+    where("role", "==", "pending_student")
   );
 
   const pendingSnapshot = await getDocs(pendingQuery);
@@ -102,33 +97,33 @@ auth.onAuthStateChanged(async (user) => {
         <p><b>Reg No:</b> ${student.regNo}</p>
         <p><b>Block:</b> ${student.block}</p>
         <p><b>Room:</b> ${student.roomNo}</p>
-        <p><b>Email:</b> ${student.email}</p>
+        <p><b>Parent Email:</b> ${student.parentEmail}</p>
 
         <button class="approveStudentBtn">Approve</button>
         <button class="rejectStudentBtn">Reject</button>
       `;
 
-      // ✅ APPROVE
+      // ✅ APPROVE STUDENT
       div.querySelector(".approveStudentBtn")
         .addEventListener("click", async () => {
 
-          await updateDoc(
-            doc(db, "users", studentId),
-            { status: "approved" }
-          );
+          await updateDoc(doc(db, "users", studentId), {
+            role: "student",
+            approved: true,
+            status: "approved"
+          });
 
           alert("Student Approved ✅");
           location.reload();
         });
 
-      // ❌ REJECT
+      // ❌ REJECT STUDENT
       div.querySelector(".rejectStudentBtn")
         .addEventListener("click", async () => {
 
-          await updateDoc(
-            doc(db, "users", studentId),
-            { status: "rejected" }
-          );
+          await updateDoc(doc(db, "users", studentId), {
+            status: "rejected"
+          });
 
           alert("Student Rejected ❌");
           location.reload();
@@ -149,7 +144,8 @@ auth.onAuthStateChanged(async (user) => {
   );
 
   const snapshot = await getDocs(q);
-  const container = document.getElementById("adminOutpasses");
+  const container =
+    document.getElementById("adminOutpasses");
 
   if (snapshot.empty) {
     container.innerHTML = "<p>No pending approvals.</p>";
