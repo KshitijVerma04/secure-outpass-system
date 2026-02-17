@@ -74,11 +74,13 @@ auth.onAuthStateChanged(async (user) => {
     document.getElementById("pendingStudents");
 
   const pendingQuery = query(
-    collection(db, "users"),
-    where("role", "==", "pending_student")
-  );
+  collection(db, "users"),
+  where("approved", "==", false)
+);
+
 
   const pendingSnapshot = await getDocs(pendingQuery);
+  console.log("Pending snapshot:", pendingSnapshot.docs);
 
   if (pendingSnapshot.empty) {
     pendingContainer.innerHTML = "<p>No pending students.</p>";
