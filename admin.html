@@ -1,9 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Admin Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<header>
+  <h1>Admin Dashboard</h1>
+  <button id="logoutBtn" class="logout-btn">Logout</button>
+</header>
+
+<div class="dashboard-container">
+
+  <!-- ✅ NEW SECTION -->
+  <div class="card">
+    <h2>Pending Student Registrations</h2>
+    <div id="pendingStudents"></div>
+  </div>
+
+  <!-- EXISTING SECTION -->
+  <div class="card">
+    <h2>Pending Admin Approvals</h2>
+    <div id="adminOutpasses"></div>
+  </div>
+
+</div>
+
+
 <script type="module">
+
 import { auth, db } from "./firebase.js";
-import { 
-  collection, query, where, getDocs, doc, updateDoc, getDoc 
+
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  doc,
+  updateDoc,
+  getDoc
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+import {
+  signOut
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
 
 auth.onAuthStateChanged(async (user) => {
 
@@ -21,43 +64,107 @@ auth.onAuthStateChanged(async (user) => {
   }
 
   // ✅ LOGOUT
-  document.getElementById("logoutBtn").addEventListener("click", async () => {
-    await signOut(auth);
-    window.location.href = "login.html";
-  });
+  document.getElementById("logoutBtn")
+    .addEventListener("click", async () => {
+      await signOut(auth);
+      window.location.href = "login.html";
+    });
 
-  // ✅ FETCH PENDING ADMIN APPROVALS
+
+  // ==================================================
+  // ✅ PENDING STUDENT APPROVAL SYSTEM
+  // ==================================================
+
+  const pendingContainer =
+    document.getElementById("pendingStudents");
+
+  const pendingQuery = query(
+    collection(db, "users"),
+    where("role", "==", "pending_student")
+  );
+
+  const pendingSnapshot = await getDocs(pendingQuery);
+
+  if (pendingSnapshot.empty) {
+    pendingContainer.innerHTML = "<p>No pending students.</p>";
+  } else {
+
+    for (const studentDoc of pendingSnapshot.docs) {
+
+      const student = studentDoc.data();
+      const studentId = studentDoc.id;
+
+      const div = document.createElement("div");
+
+      div.innerHTML = `
+        <hr>
+        <p><b>Name:</b> ${student.name}</p>
+        <p><b>Reg No:</b> ${student.regNo}</p>
+        <p><b>Block:</b> ${student.block}</p>
+        <p><b>Room:</b> ${student.roomNo}</p>
+        <p><b>Parent Email:</b> ${student.parentEmail}</p>
+
+        <button class="approveStudentBtn">
+          Approve Student
+        </button>
+      `;
+
+      div.querySelector(".approveStudentBtn")
+        .addEventListener("click", async () => {
+
+          await updateDoc(
+            doc(db, "users", studentId),
+            {
+              role: "student",
+              approved: true
+            }
+          );
+
+          alert("Student Approved!");
+          location.reload();
+        });
+
+      pendingContainer.appendChild(div);
+    }
+  }
+
+
+  // ==================================================
+  // ✅ EXISTING OUTPASS APPROVAL SYSTEM
+  // ==================================================
+
   const q = query(
     collection(db, "outpasses"),
     where("status", "==", "pending_admin")
   );
 
-  const querySnapshot = await getDocs(q);
+  const snapshot = await getDocs(q);
   const container = document.getElementById("adminOutpasses");
 
-  if (querySnapshot.empty) {
+  if (snapshot.empty) {
     container.innerHTML = "<p>No pending approvals.</p>";
     return;
   }
 
-  // ✅ USE for...of INSTEAD OF forEach
-  for (const docSnap of querySnapshot.docs) {
+  for (const docSnap of snapshot.docs) {
 
     const data = docSnap.data();
 
-    // Fetch student details
-    const studentDoc = await getDoc(doc(db, "users", data.studentId));
-    const studentData = studentDoc.data();
+    const studentDoc =
+      await getDoc(doc(db, "users", data.studentId));
+
+    const student = studentDoc.data();
 
     const div = document.createElement("div");
 
     div.innerHTML = `
       <hr>
+
       <h3>Student Details</h3>
-      <p><b>Name:</b> ${studentData?.name || "N/A"}</p>
-      <p><b>Reg No:</b> ${studentData?.regNo || "N/A"}</p>
-      <p><b>Block:</b> ${studentData?.block || "N/A"}</p>
-      <p><b>Room No:</b> ${studentData?.roomNo || "N/A"}</p>
+      <p><b>Name:</b> ${student?.name || "N/A"}</p>
+      <p><b>Reg No:</b> ${student?.regNo || "N/A"}</p>
+      <p><b>Block:</b> ${student?.block || "N/A"}</p>
+      <p><b>Room:</b> ${student?.roomNo || "N/A"}</p>
 
       <h3>Outpass Request</h3>
       <p><b>Destination:</b> ${data.destination}</p>
@@ -69,36 +176,40 @@ auth.onAuthStateChanged(async (user) => {
       <button class="rejectBtn">Reject</button>
     `;
 
-    // ✅ APPROVE
-    div.querySelector(".approveBtn").addEventListener("click", async () => {
+    div.querySelector(".approveBtn")
+      .addEventListener("click", async () => {
 
-      const expiryDate = new Date();
-      expiryDate.setHours(expiryDate.getHours() + 24);
+        const expiryDate = new Date();
+        expiryDate.setHours(expiryDate.getHours() + 24);
 
-      await updateDoc(doc(db, "outpasses", docSnap.id), {
-        status: "approved",
-        qrToken: docSnap.id,
-        expiry: expiryDate,
-        used: false
+        await updateDoc(doc(db, "outpasses", docSnap.id), {
+          status: "approved",
+          qrToken: docSnap.id,
+          expiry: expiryDate,
+          used: false
+        });
+
+        alert("Outpass Approved!");
+        location.reload();
       });
 
-      alert("Outpass Approved!");
-      location.reload();
-    });
+    div.querySelector(".rejectBtn")
+      .addEventListener("click", async () => {
 
-    // ❌ REJECT
-    div.querySelector(".rejectBtn").addEventListener("click", async () => {
+        await updateDoc(doc(db, "outpasses", docSnap.id), {
+          status: "rejected_by_admin"
+        });
 
-      await updateDoc(doc(db, "outpasses", docSnap.id), {
-        status: "rejected_by_admin"
+        alert("Outpass Rejected!");
+        location.reload();
       });
-
-      alert("Outpass Rejected.");
-      location.reload();
-    });
 
     container.appendChild(div);
   }
 
 });
+
 </script>
+
+</body>
+</html>

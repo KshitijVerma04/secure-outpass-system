@@ -100,3 +100,10 @@ button:hover {
 .btn:hover {
   opacity: 0.9;
 }
+.btn.signup {
+  background-color: #9333ea; /* purple */
+}
+
+.btn.signup:hover {
+  opacity: 0.9;
+}
